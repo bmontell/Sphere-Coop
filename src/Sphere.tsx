@@ -73,6 +73,7 @@ const SphereMaterial = shaderMaterial(
       vec3 cloudColor = texture2D(uCloudTexture, vUv).rgb;
 
       dayColor = mix(dayColor, vec3(1.0), cloudColor.r);
+      nightColor = mix(nightColor, vec3(0.06), cloudColor.r);
 
       vec3 dryColor = dayColor;
       if (distance(dayColor, vec3(30.0, 59.0, 117.0)/255.0) < 0.25) {
