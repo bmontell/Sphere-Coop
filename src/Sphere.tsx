@@ -1,15 +1,21 @@
 import { extend, useFrame } from '@react-three/fiber'
 import './App.css'
-import { shaderMaterial, useTexture } from '@react-three/drei'
+import { shaderMaterial, useTexture, useVideoTexture } from '@react-three/drei'
 import { useRef } from 'react'
 import type { ShaderMaterial } from 'three'
 
-export function Sphere() {
+interface SphereProps {
+  shouldUseVideoTexture?: boolean
+}
+
+export function Sphere({shouldUseVideoTexture}: SphereProps) {
 
   const dayTexture = useTexture('2k_earth_daymap.jpg')
   const nightTexture = useTexture('2k_earth_nightmap.jpg')
   const cloudTexture = useTexture('2k_earth_clouds.jpg')
   const bathymetryTexture = useTexture('bathymetry.jpg')
+
+  const videoTexture = useVideoTexture('cats.mov')
 
   const timeRef = useRef(0)
   const matRef = useRef<ShaderMaterial>(null)
@@ -18,7 +24,6 @@ export function Sphere() {
     if (matRef.current) {
       matRef.current.uniforms.uTime.value = timeRef.current
     }
-    console.log(matRef.current)
   })
 
   return (
@@ -30,7 +35,9 @@ export function Sphere() {
         uDayTexture={dayTexture}
         uNightTexture={nightTexture}
         uCloudTexture={cloudTexture}
-        uBathymetryTexture={bathymetryTexture} />
+        uBathymetryTexture={bathymetryTexture}
+        uVideoTexture={videoTexture} 
+        uUseVideoTexture={shouldUseVideoTexture} />
     </mesh>
   )
 }
@@ -41,17 +48,23 @@ const SphereMaterial = shaderMaterial(
     uNightTexture: { value: null },
     uCloudTexture: { value: null },
     uBathymetryTexture: { value: null },
-    uTime: { value: 0.0 }
+    uVideoTexture: { value: null },
+    uTime: { value: 0.0 },
+    uUseVideoTexture: { value: false }
   },
   `
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vLightDir;
 
+    uniform float uTime;
+
     void main() {
       vUv = uv;
       vNormal = normalize(normalMatrix * normal);
-      vLightDir = normalize(normalMatrix * vec3(1.0, 0.1, 0.0));
+
+      float lightSpeed = 0.2;
+      vLightDir = normalize(normalMatrix * vec3(cos(lightSpeed * uTime), 0.1, sin(lightSpeed * uTime)));
 
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
@@ -61,7 +74,10 @@ const SphereMaterial = shaderMaterial(
     uniform sampler2D uNightTexture;
     uniform sampler2D uCloudTexture;
     uniform sampler2D uBathymetryTexture;
+    uniform sampler2D uVideoTexture;
+
     uniform float uTime;
+    uniform bool uUseVideoTexture;
 
     varying vec2 vUv;
     varying vec3 vNormal;
@@ -89,6 +105,14 @@ const SphereMaterial = shaderMaterial(
 
       // vec3 grayscale = vec3(dot(color, vec3(0.299, 0.587, 0.114)));
       // color = 0.5 * color;//mix(color, grayscale, 0.5);
+
+      if (uUseVideoTexture) {
+        vec2 videoUv = vUv;
+        videoUv.x *= 3.0;
+        videoUv = mod(videoUv, 1.0);
+        color = texture2D(uVideoTexture, videoUv).rgb;
+        color *= mix(0.1, 1.0, light);
+      }
 
       gl_FragColor = vec4(color, 1.0);
     }
